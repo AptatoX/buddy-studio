@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claude Web TTY</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css"
+    />
+    <style>
+      :root {
+        --bg: #0e1c23;
+        --panel: #122b36;
+        --text: #e6ebe7;
+        --muted: #9ca9a6;
+        --line: #8fa91a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(143, 169, 26, 0.08), transparent 24rem),
+          linear-gradient(180deg, #173441 0%, var(--bg) 52%, #102630 100%);
+        color: var(--text);
+        font-family:
+          "SF Mono", "JetBrains Mono", "IBM Plex Mono", "Roboto Mono",
+          monospace;
+      }
+
+      .shell {
+        width: 100%;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+      }
+
+      .frame {
+        width: 100%;
+        height: 100vh;
+        border: 1px solid rgba(143, 169, 26, 0.28);
+        background: rgba(13, 27, 33, 0.88);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      }
+
+      #terminal {
+        width: 100%;
+        height: 100vh;
+        min-height: 0;
+        padding: 8px 0 8px 8px;
+        overflow: hidden;
+      }
+
+      .xterm-viewport {
+        overflow-y: auto !important;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(143, 169, 26, 0.55) rgba(18, 43, 54, 0.45);
+        margin-right: -10px;
+        padding-right: 10px;
+      }
+
+      .xterm-viewport::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .xterm-viewport::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .xterm-viewport::-webkit-scrollbar-thumb {
+        background: rgba(143, 169, 26, 0.5);
+        border-radius: 999px;
+        border: 1px solid rgba(18, 43, 54, 0.15);
+      }
+
+      .status {
+        color: var(--muted);
+      }
+
+      .status.error {
+        color: #d9786c;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="frame">
+        <div id="terminal"></div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+    <script>
+      const term = new Terminal({
+        cursorBlink: true,
+        fontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
+        fontSize: 14,
+        lineHeight: 1.1,
+        letterSpacing: 0,
+        scrollback: 1200,
+        customGlyphs: false,
+        theme: {
+          background: "#0d1b21",
+          foreground: "#e6ebe7",
+          cursor: "#c7d670",
+          selectionBackground: "rgba(143, 169, 26, 0.25)",
+        },
+        convertEol: false,
+      });
+      const fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(document.getElementById("terminal"));
+      let queuedInput = "";
+      let lastCommandId = null;
+      let ws = null;
+      let connectionToken = 0;
+      let forcedCols = null;
+      let promptDetected = false;
+      let promptReadyNotified = false;
+      let promptIdleTimer = null;
+      let plainTextTail = "";
+
+      function fitTerminal() {
+        fitAddon.fit();
+        if (forcedCols && term.cols > forcedCols) {
+          term.resize(forcedCols, term.rows);
+        }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+        }
+      }
+
+      fitTerminal();
+
+      function notifyParent(message) {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(message, "http://127.0.0.1:4317");
+        }
+      }
+
+      function stripAnsi(text) {
+        return text
+          .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
+          .replace(/\x1b\][^\x07]*(\x07|\x1b\\)/g, "")
+          .replace(/\r/g, "\n");
+      }
+
+      function normalizeTerminalOutput(text) {
+        return text;
+      }
+
+      function updatePromptState(text) {
+        plainTextTail = `${plainTextTail}${stripAnsi(text)}`.slice(-4000);
+        if (!promptDetected && /(?:^|\n)>\s*(?:\n|$)/.test(plainTextTail)) {
+          promptDetected = true;
+        }
+
+        if (promptDetected && !promptReadyNotified) {
+          if (promptIdleTimer) {
+            clearTimeout(promptIdleTimer);
+          }
+
+          // Claude keeps painting the welcome panel for a moment after the prompt appears.
+          // Wait for the terminal to go quiet before telling the parent it's safe to send /buddy.
+          promptIdleTimer = setTimeout(() => {
+            promptIdleTimer = null;
+            if (promptDetected && !promptReadyNotified) {
+              promptReadyNotified = true;
+              notifyParent({ type: "tty-ready" });
+            }
+          }, 900);
+        }
+      }
+
+      function setStatus(text, error = false) {
+        document.title = error ? `Claude Web TTY - ${text}` : "Claude Web TTY";
+      }
+
+      function sendInput(data) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "input", data }));
+          return true;
+        }
+
+        queuedInput += data;
+        return false;
+      }
+
+      function connectTerminal() {
+        connectionToken += 1;
+        const token = connectionToken;
+        ws = new WebSocket(`ws://${location.host}/pty`);
+
+        ws.addEventListener("open", () => {
+          if (token !== connectionToken) {
+            return;
+          }
+
+          promptDetected = false;
+          promptReadyNotified = false;
+          if (promptIdleTimer) {
+            clearTimeout(promptIdleTimer);
+            promptIdleTimer = null;
+          }
+          plainTextTail = "";
+          setStatus("Connected");
+          notifyParent({ type: "tty-status", connected: true });
+          requestAnimationFrame(() => {
+            if (token !== connectionToken) {
+              return;
+            }
+            fitTerminal();
+          });
+          if (queuedInput) {
+            ws.send(JSON.stringify({ type: "input", data: queuedInput }));
+            queuedInput = "";
+          }
+        });
+
+        ws.addEventListener("message", (event) => {
+          if (token !== connectionToken) {
+            return;
+          }
+
+          const message = JSON.parse(event.data);
+          if (message.type === "data") {
+            term.write(normalizeTerminalOutput(message.data));
+            updatePromptState(message.data);
+            notifyParent({ type: "tty-activity" });
+          } else if (message.type === "exit") {
+            setStatus(`Claude exited (${message.exitCode ?? "?"})`, true);
+            notifyParent({ type: "tty-status", connected: false });
+            term.write(`\r\n[Claude exited]\r\n`);
+          }
+        });
+
+        ws.addEventListener("close", () => {
+          if (token !== connectionToken) {
+            return;
+          }
+
+          setStatus("Disconnected", true);
+          notifyParent({ type: "tty-status", connected: false });
+        });
+
+        ws.addEventListener("error", () => {
+          if (token !== connectionToken) {
+            return;
+          }
+
+          setStatus("Connection error", true);
+          notifyParent({ type: "tty-status", connected: false });
+        });
+      }
+
+      function resetTerminalSession(mode = null) {
+        connectionToken += 1;
+        const nextToken = connectionToken;
+
+        setStatus("Reconnecting...");
+        notifyParent({ type: "tty-status", connected: false });
+        queuedInput = "";
+        lastCommandId = null;
+        forcedCols = mode === "compact" ? 54 : null;
+        promptDetected = false;
+        promptReadyNotified = false;
+        if (promptIdleTimer) {
+          clearTimeout(promptIdleTimer);
+          promptIdleTimer = null;
+        }
+        plainTextTail = "";
+        const previousWs = ws;
+        ws = null;
+        if (previousWs) {
+          try {
+            previousWs.close();
+          } catch {
+          }
+        }
+        term.reset();
+        if (typeof term.clear === "function") {
+          term.clear();
+        }
+        fitTerminal();
+
+        setTimeout(() => {
+          if (nextToken !== connectionToken) {
+            return;
+          }
+          connectionToken -= 1;
+          connectTerminal();
+        }, 80);
+      }
+
+      connectTerminal();
+
+      term.onData((data) => {
+        sendInput(data);
+      });
+
+      window.addEventListener("resize", () => {
+        fitTerminal();
+      });
+
+      if (document.fonts?.ready) {
+        document.fonts.ready.then(() => {
+          fitTerminal();
+        });
+      }
+
+      window.addEventListener("message", (event) => {
+        const allowedOrigins = new Set([
+          location.origin,
+          "http://127.0.0.1:4317",
+        ]);
+
+        if (!allowedOrigins.has(event.origin)) {
+          return;
+        }
+
+        const message = event.data;
+        if (!message || typeof message !== "object") {
+          return;
+        }
+
+        if (message.type === "send-command" && typeof message.command === "string") {
+          if (message.commandId && message.commandId === lastCommandId) {
+            return;
+          }
+          lastCommandId = message.commandId || null;
+          sendInput(message.command);
+          return;
+        }
+
+        if (message.type === "set-layout") {
+          forcedCols = message.mode === "compact" ? 54 : null;
+          fitTerminal();
+          return;
+        }
+
+        if (message.type === "reset-session") {
+          resetTerminalSession(message.mode || null);
+        }
+      });
+    </script>
+  </body>
+</html>

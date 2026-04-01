@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Official Buddy Studio</title>
+    <style>
+      :root {
+        --bg: #0f2631;
+        --bg-soft: #173744;
+        --panel: rgba(10, 28, 35, 0.88);
+        --line: #9db124;
+        --line-soft: rgba(157, 177, 36, 0.28);
+        --text: #ecf0ea;
+        --muted: #a9b7b4;
+        --danger: #e18470;
+        --shadow: 0 28px 90px rgba(0, 0, 0, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        font-family:
+          "SF Mono", "JetBrains Mono", "IBM Plex Mono", "Roboto Mono",
+          monospace;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(157, 177, 36, 0.1), transparent 24rem),
+          linear-gradient(180deg, #163542 0%, var(--bg) 55%, #0c1f28 100%);
+      }
+
+      .shell {
+        width: min(1440px, calc(100vw - 28px));
+        height: 100vh;
+        margin: 0 auto;
+        padding: 14px 0;
+      }
+
+      .grid {
+        height: 100%;
+        display: grid;
+        grid-template-columns: minmax(680px, 1.4fr) minmax(300px, 0.72fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .panel {
+        position: relative;
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+      }
+
+      .panel::before {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 1px solid rgba(157, 177, 36, 0.64);
+        pointer-events: none;
+      }
+
+      .panel-inner {
+        position: relative;
+        z-index: 1;
+      }
+
+      .terminal-shell {
+        min-height: 0;
+      }
+
+      .terminal-wrap {
+        height: 100%;
+        padding: 10px;
+      }
+
+      iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        border: 0;
+        border-radius: 2px;
+        background: #0b1b21;
+      }
+
+      aside.panel {
+        min-height: 0;
+      }
+
+      .sidebar {
+        height: 100%;
+        overflow: hidden;
+        padding: 24px;
+        display: grid;
+        grid-template-rows: auto auto 42px minmax(0, 1fr) 96px;
+        row-gap: 14px;
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      button {
+        appearance: none;
+        width: 100%;
+        border: 1px solid var(--line);
+        background: rgba(157, 177, 36, 0.12);
+        color: var(--text);
+        padding: 14px 16px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: rgba(157, 177, 36, 0.18);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+        background: rgba(157, 177, 36, 0.08);
+      }
+
+      .status {
+        min-height: 42px;
+        height: 42px;
+        color: var(--muted);
+        line-height: 1.6;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        padding: 0 2px;
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        background: rgba(9, 22, 28, 0.58);
+        display: grid;
+        grid-template-rows: 72px 136px minmax(0, 1fr);
+        min-height: 0;
+        height: 100%;
+      }
+
+      .section {
+        padding: 16px 18px;
+        border-top: 1px solid rgba(157, 177, 36, 0.2);
+        min-height: 0;
+      }
+
+      .section:first-child {
+        border-top: 0;
+      }
+
+      .section:nth-child(2) {
+        padding-top: 24px;
+        padding-bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+      }
+
+      .section:last-child {
+        padding-top: 14px;
+        padding-bottom: 24px;
+      }
+
+      .title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.22rem;
+        font-weight: 700;
+        color: var(--line);
+      }
+
+      .title > span:first-child {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .pill {
+        color: var(--text);
+        background: rgba(157, 177, 36, 0.14);
+        border: 1px solid rgba(157, 177, 36, 0.32);
+        padding: 4px 8px;
+        font-size: 0.8rem;
+      }
+
+      .name {
+        font-size: 2.1rem;
+        margin: 0;
+        min-width: 0;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .name-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .stars {
+        color: #f1d56b;
+        font-size: 1rem;
+        letter-spacing: 0.14em;
+        white-space: nowrap;
+        justify-self: start;
+        align-self: center;
+      }
+
+      .species {
+        color: var(--line);
+        font-size: 1rem;
+        letter-spacing: 0.14em;
+        white-space: nowrap;
+        text-transform: uppercase;
+        justify-self: end;
+        align-self: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+
+      .personality {
+        margin-top: 14px;
+        font-style: italic;
+        color: var(--muted);
+        line-height: 1.7;
+        min-height: 3.4em;
+        max-height: 3.4em;
+        overflow: hidden;
+      }
+
+      .kv {
+        display: grid;
+        gap: 12px;
+      }
+
+      .kv-row {
+        display: grid;
+        gap: 6px;
+      }
+
+      .kv-row span:first-child {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .kv-value {
+        word-break: break-word;
+      }
+
+      .hint-box {
+        margin: 0;
+        padding: 14px;
+        border: 1px solid rgba(169, 183, 180, 0.18);
+        background: rgba(9, 19, 25, 0.5);
+        color: var(--muted);
+        line-height: 1.7;
+        font-size: 0.9rem;
+        min-height: 96px;
+        max-height: 96px;
+        overflow: hidden;
+      }
+
+      .hint-box code {
+        color: var(--text);
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      @media (max-width: 1120px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        iframe {
+          height: 70vh;
+        }
+
+        .terminal-shell {
+          min-height: auto;
+        }
+
+        .sidebar {
+          height: auto;
+          max-height: none;
+          overflow: visible;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="grid">
+        <article class="panel terminal-shell">
+          <div class="panel-inner terminal-wrap">
+            <iframe
+              id="terminalFrame"
+              title="Claude Web Terminal"
+              src="http://127.0.0.1:4322"
+            ></iframe>
+          </div>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-inner sidebar">
+            <div class="label">Buddy Control</div>
+            <div class="button-row">
+              <button id="hatchButton">Hatch</button>
+            </div>
+            <div id="statusLine" class="status"></div>
+
+            <div class="card">
+              <section class="section">
+                <div class="title">
+                  <span id="stateTitle">No Buddy Hatched Yet</span>
+                  <span id="stateMuted" class="pill">READY</span>
+                </div>
+              </section>
+              <section class="section">
+                <div class="name-row">
+                  <span id="buddyStars" class="stars"></span>
+                  <h1 id="buddyName" class="name">Unknown</h1>
+                  <span id="buddySpecies" class="species"></span>
+                </div>
+                <div id="buddyPersonality" class="personality">
+                  Press Hatch, then run /buddy in the terminal on the left.
+                </div>
+              </section>
+              <section class="section">
+                <div class="kv">
+                  <div class="kv-row">
+                    <span>Current userID</span>
+                    <div id="currentUserId" class="kv-value">-</div>
+                  </div>
+                  <div class="kv-row">
+                    <span>Hatched At</span>
+                    <div id="hatchedAt" class="kv-value">-</div>
+                  </div>
+                  <div class="kv-row">
+                    <span>Config Path</span>
+                    <div id="configPath" class="kv-value">-</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="hint-box">
+              The flow is simple: click <code>Hatch</code>, then run <code>/buddy</code> in the left terminal. This page keeps polling and will automatically capture the newly written <code>userID</code>.
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const els = {
+        terminalFrame: document.getElementById("terminalFrame"),
+        stateTitle: document.getElementById("stateTitle"),
+        stateMuted: document.getElementById("stateMuted"),
+        buddyName: document.getElementById("buddyName"),
+        buddyStars: document.getElementById("buddyStars"),
+        buddySpecies: document.getElementById("buddySpecies"),
+        buddyPersonality: document.getElementById("buddyPersonality"),
+        currentUserId: document.getElementById("currentUserId"),
+        hatchedAt: document.getElementById("hatchedAt"),
+        configPath: document.getElementById("configPath"),
+        statusLine: document.getElementById("statusLine"),
+        hatchButton: document.getElementById("hatchButton"),
+      };
+
+      let pollTimer = null;
+      let previousHatchedAt = null;
+      let hatchInFlight = false;
+      let hatchCommandId = 0;
+      let awaitingFreshUserId = false;
+      let hatchTimeout = null;
+      let pendingRefreshTimer = null;
+      let pendingBuddySend = false;
+      let terminalResetInFlight = false;
+      let waitingForCompanionDetails = false;
+
+      function setStatus(message, isError = false) {
+        els.statusLine.textContent = message;
+        els.statusLine.className = isError ? "status error" : "status";
+      }
+
+      function setHatchBusy(busy) {
+        hatchInFlight = busy;
+        els.hatchButton.disabled = busy;
+        els.hatchButton.textContent = busy ? "Hatching..." : "Hatch";
+      }
+
+      function clearHatchTimeout() {
+        if (hatchTimeout) {
+          clearTimeout(hatchTimeout);
+          hatchTimeout = null;
+        }
+      }
+
+      function clearPendingRefresh() {
+        if (pendingRefreshTimer) {
+          clearTimeout(pendingRefreshTimer);
+          pendingRefreshTimer = null;
+        }
+      }
+
+      function finishHatch(message, isError = false) {
+        awaitingFreshUserId = false;
+        pendingBuddySend = false;
+        terminalResetInFlight = false;
+        waitingForCompanionDetails = false;
+        stopPolling();
+        clearHatchTimeout();
+        clearPendingRefresh();
+        setHatchBusy(false);
+        setStatus(message, isError);
+      }
+
+      function armHatchTimeout() {
+        clearHatchTimeout();
+        hatchTimeout = setTimeout(() => {
+          if (!hatchInFlight) {
+            return;
+          }
+
+          finishHatch("No new userID was detected yet. Hatch has been unlocked so you can try again.", true);
+        }, 15000);
+      }
+
+      function formatTimestamp(value) {
+        if (!value) return "-";
+        const date = new Date(Number(value));
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleString();
+      }
+
+      function getBuddyStars(personality) {
+        const text = (personality || "").toLowerCase();
+        const mapping = [
+          { pattern: /\blegendary\b/, stars: 5 },
+          { pattern: /\bepic\b/, stars: 4 },
+          { pattern: /\brare\b/, stars: 3 },
+          { pattern: /\buncommon\b/, stars: 2 },
+          { pattern: /\bcommon\b/, stars: 1 },
+        ];
+
+        const match = mapping.find((entry) => entry.pattern.test(text));
+        if (!match) {
+          return "";
+        }
+
+        return "★".repeat(match.stars);
+      }
+
+      function getBuddySpecies(personality) {
+        const match = (personality || "").match(/^A\s+\w+\s+([A-Za-z-]+)\s+of\s+few\s+words\./i);
+        return match ? match[1].toUpperCase() : "";
+      }
+
+      function renderState(state) {
+        const buddy = state.companion;
+        els.currentUserId.textContent = state.userID || "-";
+        els.configPath.textContent = state.configPath || "-";
+
+        if (!buddy && state.userID) {
+          els.stateTitle.textContent = "Buddy Hatched";
+          els.stateMuted.textContent = state.companionMuted ? "MUTED" : "SYNCING";
+          els.buddyName.textContent = "Syncing...";
+          els.buddyStars.textContent = "";
+          els.buddySpecies.textContent = "";
+          els.buddyPersonality.textContent = "Waiting for Claude to sync buddy details.";
+          els.hatchedAt.textContent = "-";
+        } else if (!buddy) {
+          els.stateTitle.textContent = "No Buddy Hatched Yet";
+          els.stateMuted.textContent = state.companionMuted ? "MUTED" : "READY";
+          els.buddyName.textContent = "Unknown";
+          els.buddyStars.textContent = "";
+          els.buddySpecies.textContent = "";
+          els.buddyPersonality.textContent = "Press Hatch, then run /buddy in the terminal on the left.";
+          els.hatchedAt.textContent = "-";
+        } else {
+          els.stateTitle.textContent = "Official Buddy Snapshot";
+          els.stateMuted.textContent = state.companionMuted ? "MUTED" : "ACTIVE";
+          const species = getBuddySpecies(buddy.personality);
+          els.buddyName.textContent = buddy.name || "Unknown";
+          els.buddyStars.textContent = getBuddyStars(buddy.personality);
+          els.buddySpecies.textContent = species;
+          els.buddyPersonality.textContent = buddy.personality || "";
+          els.hatchedAt.textContent = formatTimestamp(buddy.hatchedAt);
+        }
+      }
+
+      async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed: ${response.status}`);
+        }
+        return data;
+      }
+
+      function stopPolling() {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      function scheduleRefresh(delay = 0) {
+        if (!hatchInFlight) {
+          return;
+        }
+
+        clearPendingRefresh();
+        pendingRefreshTimer = setTimeout(() => {
+          pendingRefreshTimer = null;
+          void refreshState(true);
+        }, delay);
+      }
+
+      async function refreshState(silent = false) {
+        if (!silent) {
+          setStatus("Refreshing buddy state...");
+        }
+
+        try {
+          const state = await fetchJson("/api/state");
+          const nextHatchedAt = state.companion?.hatchedAt ?? null;
+          const hasFreshUserId = awaitingFreshUserId && Boolean(state.userID);
+
+          if (
+            previousHatchedAt !== null &&
+            nextHatchedAt !== null &&
+            nextHatchedAt !== previousHatchedAt
+          ) {
+            renderState(state);
+            previousHatchedAt = nextHatchedAt;
+            finishHatch("New buddy detected. userID captured.");
+            return;
+          }
+
+          if (hasFreshUserId && state.companion) {
+            renderState(state);
+            previousHatchedAt = nextHatchedAt;
+            finishHatch("New userID detected. Hatch is ready again.");
+            return;
+          }
+
+          if (hasFreshUserId && !state.companion) {
+            waitingForCompanionDetails = true;
+            renderState(state);
+            previousHatchedAt = nextHatchedAt;
+            if (!silent) {
+              setStatus("New userID detected. Waiting for buddy details...");
+            }
+            return;
+          }
+
+          renderState(state);
+          previousHatchedAt = nextHatchedAt;
+
+          if (!silent) {
+            setStatus(waitingForCompanionDetails ? "Waiting for buddy details..." : "Buddy state is up to date.");
+          }
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      }
+
+      function startPolling() {
+        stopPolling();
+        pollTimer = setInterval(() => {
+          void refreshState(true);
+        }, 500);
+      }
+
+      function resetTerminalSession() {
+        terminalResetInFlight = true;
+        pendingBuddySend = true;
+        const frameWindow = els.terminalFrame?.contentWindow;
+        if (!frameWindow) {
+          finishHatch("Terminal iframe is unavailable. Reload the page and try Hatch again.", true);
+          return;
+        }
+
+        frameWindow.postMessage(
+          {
+            type: "reset-session",
+          },
+          "http://127.0.0.1:4322",
+        );
+      }
+
+      function sendBuddyCommand() {
+        const frameWindow = els.terminalFrame?.contentWindow;
+        if (!frameWindow) {
+          return false;
+        }
+
+        hatchCommandId += 1;
+        const commandId = `hatch-${hatchCommandId}`;
+
+        frameWindow.postMessage(
+          {
+            type: "send-command",
+            commandId: `${commandId}-enter`,
+            command: "\r",
+          },
+          "http://127.0.0.1:4322",
+        );
+
+        setTimeout(() => {
+          frameWindow.postMessage(
+            {
+              type: "send-command",
+              commandId: `${commandId}-buddy-text`,
+              command: "/buddy",
+            },
+            "http://127.0.0.1:4322",
+          );
+        }, 520);
+
+        setTimeout(() => {
+          frameWindow.postMessage(
+            {
+              type: "send-command",
+              commandId: `${commandId}-buddy-enter`,
+              command: "\r",
+            },
+            "http://127.0.0.1:4322",
+          );
+        }, 920);
+
+        setTimeout(() => {
+          if (!hatchInFlight) {
+            return;
+          }
+
+          frameWindow.postMessage(
+            {
+              type: "send-command",
+              commandId: `${commandId}-buddy-enter-fallback`,
+              command: "\r",
+            },
+            "http://127.0.0.1:4322",
+          );
+        }, 1600);
+
+        scheduleRefresh(250);
+        setTimeout(() => {
+          scheduleRefresh(1000);
+        }, 1000);
+        setTimeout(() => {
+          scheduleRefresh(1750);
+        }, 1750);
+        pendingBuddySend = false;
+        return true;
+      }
+
+      async function hatchInClaude() {
+        if (hatchInFlight) {
+          return;
+        }
+
+        setHatchBusy(true);
+        setStatus("Clearing userID and sending /buddy to Claude...");
+        try {
+          const state = await fetchJson("/api/hatch", {
+            method: "POST",
+          });
+          renderState(state);
+          previousHatchedAt = state.companion?.hatchedAt ?? null;
+          awaitingFreshUserId = true;
+          waitingForCompanionDetails = false;
+          startPolling();
+          armHatchTimeout();
+          scheduleRefresh(0);
+          resetTerminalSession();
+          setStatus("userID cleared. Restarting the terminal so /buddy runs in a fresh Claude session...");
+        } catch (error) {
+          finishHatch(error.message, true);
+        }
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== "http://127.0.0.1:4322") {
+          return;
+        }
+
+        const message = event.data;
+        if (!message || typeof message !== "object") {
+          return;
+        }
+
+        if (message.type === "tty-status") {
+          if (message.connected) {
+            terminalResetInFlight = false;
+            if (hatchInFlight && pendingBuddySend) {
+              setStatus("Fresh terminal connected. Waiting for Claude prompt...");
+            }
+          }
+          if (message.connected && hatchInFlight) {
+            scheduleRefresh(120);
+          }
+          return;
+        }
+
+        if (message.type === "tty-ready") {
+          if (hatchInFlight && pendingBuddySend) {
+            setStatus("Claude prompt is ready. Sending /buddy...");
+            const sent = sendBuddyCommand();
+            if (!sent) {
+              finishHatch("Claude prompt is ready, but /buddy could not be sent automatically. Run /buddy manually once.", true);
+            }
+          }
+          return;
+        }
+
+        if (message.type === "tty-activity" && hatchInFlight) {
+          scheduleRefresh(100);
+        }
+      });
+
+      els.hatchButton.addEventListener("click", hatchInClaude);
+
+      void refreshState();
+    </script>
+  </body>
+</html>

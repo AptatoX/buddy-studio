@@ -1,0 +1,8 @@
+.buddy-lab/
+tools/claude-web-tty/node_modules/
+*.log
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store
+new 1.txt
