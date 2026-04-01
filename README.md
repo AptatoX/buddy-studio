@@ -18,11 +18,18 @@ An example `/buddy` result rendered inside the embedded terminal.
 
 ## Features
 
-- Browser-based Claude Code terminal
-- One-click buddy hatch flow
+- Embedded Claude Code terminal
+  Run Claude Code inside the browser with a dedicated local WebTTY view.
+- One-click hatch flow
+  Reset the current buddy state, start a fresh Claude session, and trigger `/buddy` from the UI.
 - Live buddy snapshot panel
-- Windows and macOS launchers
-- Local-only workflow with no external backend
+  See rarity, nickname, species, personality, `userID`, and hatch time in a fixed side panel.
+- Local-only architecture
+  Everything runs on your machine and reads directly from the local Claude config.
+- Windows and macOS support
+  Includes launchers and startup flow for both platforms.
+- Built for repeat hatching
+  The layout is optimized for quickly hatching, checking, and refreshing buddy results.
 
 ## Requirements
 
