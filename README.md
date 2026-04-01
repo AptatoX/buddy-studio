@@ -4,6 +4,18 @@ Buddy Studio is a local browser UI for hatching and inspecting Claude Code buddi
 
 It launches a web terminal for Claude Code on the left and a compact status panel on the right. When you click `Hatch`, the app clears the current `userID` in `~/.claude.json`, starts a fresh Claude terminal session, runs `/buddy`, and waits for Claude to write the new buddy state back to disk.
 
+## Preview
+
+![Buddy Studio UI](./docs/images/MothWisdom.png)
+
+The main view combines a Claude Code web terminal on the left with a fixed buddy snapshot panel on the right.
+
+## Example Buddy Output
+
+![Buddy Card Example](./docs/images/Dragon.PNG)
+
+An example `/buddy` result rendered inside the embedded terminal.
+
 ## Features
 
 - Browser-based Claude Code terminal
@@ -71,3 +83,4 @@ http://127.0.0.1:4317
 - A local backup is created under `.buddy-lab/`, which is ignored by Git.
 - This project is an unofficial local utility and is not affiliated with Anthropic.
 - Windows and macOS are supported. Linux has not been tuned yet.
+- Before publishing screenshots, redact local paths and `userID` values if they are visible.
