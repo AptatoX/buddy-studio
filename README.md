@@ -41,13 +41,15 @@ An example `/buddy` result rendered inside the embedded terminal.
 
 Install the WebTTY dependencies once:
 
-```powershell
-cd tools\claude-web-tty
+```bash
+cd tools/claude-web-tty
 npm install
-cd ..\..
+cd ../..
 ```
 
 ## Run
+
+On Windows:
 
 ```bat
 run-buddy-studio.bat
