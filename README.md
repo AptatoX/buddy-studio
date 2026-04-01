@@ -1,6 +1,6 @@
 # Buddy Studio
 
-Buddy Studio is a local browser UI for hatching and inspecting Claude Code buddies.
+Buddy Studio is a local web UI for Claude Code that lets you hatch buddies, run `/buddy` in an embedded terminal, and inspect the latest buddy snapshot.
 
 It launches a web terminal for Claude Code on the left and a compact status panel on the right. When you click `Hatch`, the app clears the current `userID` in `~/.claude.json`, starts a fresh Claude terminal session, runs `/buddy`, and waits for Claude to write the new buddy state back to disk.
 
@@ -44,6 +44,11 @@ Install the WebTTY dependencies once:
 ```bash
 cd tools/claude-web-tty
 npm install
+```
+
+Then return to the project root:
+
+```bash
 cd ../..
 ```
 
