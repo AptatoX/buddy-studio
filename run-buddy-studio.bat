@@ -7,5 +7,10 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-start "" http://127.0.0.1:4317
 node tools\official-buddy-lab\start-buddy-studio.mjs
+if errorlevel 1 (
+  echo.
+  echo Buddy Studio did not start successfully.
+  pause
+  exit /b 1
+)
