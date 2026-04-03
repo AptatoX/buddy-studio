@@ -52,6 +52,8 @@ Then return to the project root:
 cd ../..
 ```
 
+On a fresh Windows machine, do not skip the install step above. If the WebTTY dependencies are missing, or if `node-pty` was installed against a different Node.js version, the launcher now tries to repair them automatically with `npm install`.
+
 ## Run
 
 On Windows:
@@ -59,6 +61,15 @@ On Windows:
 ```bat
 run-buddy-studio.bat
 ```
+
+The Windows launcher now waits for both local services to be ready before opening the browser. If startup fails, it prints the specific missing prerequisite, such as:
+
+- WebTTY dependencies not installed yet
+- Claude Code not installed or not available in `PATH`
+- `~/.claude.json` has not been created on this machine yet
+- `node-pty` needed to be reinstalled for the current Node.js version
+
+On macOS, the launcher also repairs `node-pty`'s `spawn-helper` execute permission before startup. This avoids the common browser-side error `Failed to start Claude: posix_spawnp failed.` when the helper lost its executable bit.
 
 On macOS:
 

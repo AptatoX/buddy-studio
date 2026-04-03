@@ -8,5 +8,4 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-open "http://127.0.0.1:4317"
 node "tools/official-buddy-lab/start-buddy-studio.mjs"
